@@ -2,6 +2,8 @@
   "name": "project",
   "version-string": "latest",
   "dependencies": [
-    "gtest"
+    "gtest",
+    "boost-asio",
+    "boost-beast"
   ]
 }

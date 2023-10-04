@@ -1,18 +1,12 @@
-# Modern C++ Template
+# WebSocket Proxy in C++
 
-A quick C++ template for modern CMake projects, aimed to be an easy to use
-starting point.
+Use one of the presets inside of CMakePresets.json in order to build the project.
 
-Forked from: [https://github.com/filipdutescu/modern-cpp-template](https://github.com/filipdutescu/modern-cpp-template)
+Before trying to build initialize the vcpkg submodule and bootstrap it by doing the following:
 
-Removed conan, catch2 and Github workflows to make the template simpler.
-
-Added CMakePresets.json with Debug and Release configure/build/test presets.
-
-Left the Makefile, as it can be modified to work (I don't use it during my regular development, but it can be useful for CI).
-
-Made C++20 the default.
-
+git submodule init
+git submodule update
+cd vcpkg && ./bootstrap-vcpkg.sh -disableMetrics
 
 ## License
 
