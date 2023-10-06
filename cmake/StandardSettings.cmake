@@ -15,7 +15,6 @@ option(${PROJECT_NAME}_WARNINGS_AS_ERRORS "Treat compiler warnings as errors." O
 #
 # Unit testing
 #
-# Currently supporting: GoogleTest, Catch2.
 
 option(${PROJECT_NAME}_ENABLE_UNIT_TESTING "Enable unit tests for the projects (from the `test` subfolder)." ON)
 
