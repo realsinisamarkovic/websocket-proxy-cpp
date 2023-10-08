@@ -141,7 +141,7 @@ if(${PROJECT_NAME}_BUILD_EXECUTABLE)
 else()
   set(PROJECT_LIBRARY ${PROJECT_NAME})
 endif()
-verbose_message("Project lirary reference: ${PROJECT_LIBRARY}\n")
+verbose_message("Project library reference: ${PROJECT_LIBRARY}\n")
 
 #
 # Model project dependencies

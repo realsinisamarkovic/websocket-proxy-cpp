@@ -3,7 +3,6 @@
 #
 
 option(${PROJECT_NAME}_BUILD_EXECUTABLE "Build the project as an executable, rather than a library." ON)
-option(${PROJECT_NAME}_BUILD_HEADERS_ONLY "Build the project as a header-only library." OFF)
 option(${PROJECT_NAME}_USE_ALT_NAMES "Use alternative names for the project, such as naming the include directory all lowercase." ON)
 
 #
@@ -77,8 +76,22 @@ if(CCACHE_FOUND)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif()
 
-option(${PROJECT_NAME}_ENABLE_ASAN "Enable Address Sanitize to detect memory error." OFF)
+option(${PROJECT_NAME}_ENABLE_ASAN "Enable Address Sanitizer to detect memory errors." OFF)
 if(${PROJECT_NAME}_ENABLE_ASAN)
-    add_compile_options(-fsanitize=address)
-    add_link_options(-fsanitize=address)
+  if(NOT ${PROJECT_NAME}_ENABLE_TSAN)
+    add_compile_options(-fsanitize=address,undefined)
+    add_link_options(-fsanitize=address,undefined)
+  else()
+    message("ASAN and TSAN can't be used together!")
+  endif()
+endif()
+
+option(${PROJECT_NAME}_ENABLE_TSAN "Enable Thread Sanitizer to detect concurrency errors." OFF)
+if(${PROJECT_NAME}_ENABLE_TSAN)
+  if(NOT ${PROJECT_NAME}_ENABLE_ASAN)
+    add_compile_options(-fsanitize=thread,undefined)
+    add_link_options(-fsanitize=thread,undefined)
+  else()
+    message("ASAN and TSAN can't be used together!")
+  endif()
 endif()

@@ -1,12 +1,60 @@
 #include "websocket_proxy_cpp/websocket_proxy.hpp"
 
+#include <boost/beast/core.hpp>
+#include <boost/beast/websocket.hpp>
 #include <boost/asio/co_spawn.hpp>
+#include <boost/asio/use_awaitable.hpp>
+#include <boost/beast/websocket/rfc6455.hpp>
+#include <boost/beast/http.hpp>
+#include <boost/beast.hpp>
 #include <iostream>
 
-namespace http = beast::http;
+namespace http = boost::beast::http;
+namespace websocket = boost::beast::websocket;  // from <boost/beast/websocket.hpp>
+namespace beast = boost::beast;          // from <boost/beast.hpp>
 
-net::awaitable<void> do_session(stream websocket)
+// this is a stream which makes the executor have awaitable as its default completion handler
+using awaitable_stream = websocket::stream<typename beast::tcp_stream::rebind_executor<
+    typename net::use_awaitable_t<>::executor_with_default<net::any_io_executor>>::other>;
+
+namespace {
+std::string extract_target_from_url(const std::string& url) {
+    std::size_t start_pos = url.find("target=");
+    if (start_pos == std::string::npos) {
+        return "";
+    }
+
+    static constexpr size_t inc = 7;
+    start_pos += inc; // Length of "target="
+    std::size_t end_pos = url.find('&', start_pos);
+    if (end_pos == std::string::npos) {
+        end_pos = url.length();
+    }
+
+    return url.substr(start_pos, end_pos - start_pos);
+}
+}
+
+net::awaitable<void> start_websocket_session(awaitable_socket socket)
 {
+  beast::flat_buffer buffer;
+  http::request<http::string_body> req;
+  for(;;) {
+    co_await http::async_read(socket, buffer, req, net::use_awaitable);
+
+    if(websocket::is_upgrade(req)) {
+      std::string target = extract_target_from_url(req.target());
+
+      std::cout << "Target: " << target << std::endl;
+
+      break;
+    }
+
+    buffer.clear();
+    req.clear();
+  }
+  auto websocket = awaitable_stream(std::move(socket));
+
   // Set suggested timeout settings for the websocket
   websocket.set_option(websocket::stream_base::timeout::suggested(beast::role_type::server));
 
@@ -14,9 +62,9 @@ net::awaitable<void> do_session(stream websocket)
   websocket.set_option(websocket::stream_base::decorator(
       [](websocket::response_type& res)
       { res.set(http::field::server, std::string(BOOST_BEAST_VERSION_STRING) + " websocket-server-coro"); }));
-
+  
   // Accept the websocket handshake
-  co_await websocket.async_accept();
+  co_await websocket.async_accept(req);
 
   for (;;)
   {
@@ -64,7 +112,7 @@ net::awaitable<void> listen(tcp::endpoint endpoint)
   {
     net::co_spawn(
         acceptor.get_executor(),
-        do_session(stream(co_await acceptor.async_accept())),
+        start_websocket_session(co_await acceptor.async_accept()),
         [](const std::exception_ptr& error)
         {
           try
