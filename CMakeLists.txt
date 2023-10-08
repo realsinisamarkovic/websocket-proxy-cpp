@@ -26,7 +26,6 @@ if (UNIX)
     add_compile_options("$<$<CONFIG:DEBUG>:-D_DEBUG>")    #this will allow to use same _DEBUG macro available in both Linux as well as Windows - MSCV environment. Easy to put Debug specific code.
 endif (UNIX)
 
-
 #
 # Setup alternative names
 #
@@ -64,25 +63,16 @@ if(${PROJECT_NAME}_BUILD_EXECUTABLE)
     endforeach()
   endif()
 
-  if(${PROJECT_NAME}_ENABLE_UNIT_TESTING)
-    add_library(${PROJECT_NAME}_LIB ${headers} ${sources})
-
-    if(${PROJECT_NAME}_VERBOSE_OUTPUT)
-      verbose_message("Found the following headers:")
-      foreach(header IN LISTS headers)
-        verbose_message("* ${header}")
-      endforeach()
-    endif()
-  endif()
-elseif(${PROJECT_NAME}_BUILD_HEADERS_ONLY)
-  add_library(${PROJECT_NAME} INTERFACE)
+  add_library(${PROJECT_NAME}_LIB ${headers} ${sources})
 
   if(${PROJECT_NAME}_VERBOSE_OUTPUT)
     verbose_message("Found the following headers:")
-    foreach(header IN LIST headers)
+    foreach(header IN LISTS headers)
       verbose_message("* ${header}")
     endforeach()
   endif()
+
+  target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_LIB)
 else()
   add_library(
     ${PROJECT_NAME}
@@ -109,7 +99,7 @@ set_target_properties(
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}"
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE}"
 )
-if(${PROJECT_NAME}_BUILD_EXECUTABLE AND ${PROJECT_NAME}_ENABLE_UNIT_TESTING)
+if(${PROJECT_NAME}_BUILD_EXECUTABLE)
   set_target_properties(
     ${PROJECT_NAME}_LIB
     PROPERTIES
@@ -125,15 +115,12 @@ message(STATUS "Added all header and implementation files.\n")
 # Set the project standard and warnings
 #
 
-if(${PROJECT_NAME}_BUILD_HEADERS_ONLY)
-  target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_20)
-else()
-  target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 
-  if(${PROJECT_NAME}_BUILD_EXECUTABLE AND ${PROJECT_NAME}_ENABLE_UNIT_TESTING)
-    target_compile_features(${PROJECT_NAME}_LIB PUBLIC cxx_std_20)
-  endif()
+if(${PROJECT_NAME}_BUILD_EXECUTABLE)
+  target_compile_features(${PROJECT_NAME}_LIB PUBLIC cxx_std_20)
 endif()
+
 include(cmake/CompilerWarnings.cmake)
 set_project_warnings(${PROJECT_NAME})
 
@@ -146,8 +133,27 @@ verbose_message("Applied compiler warnings. Using standard ${CMAKE_CXX_STANDARD}
 include(cmake/Doxygen.cmake)
 
 #
+# Project library reference
+#
+
+if(${PROJECT_NAME}_BUILD_EXECUTABLE)
+  set(PROJECT_LIBRARY ${PROJECT_NAME}_LIB)
+else()
+  set(PROJECT_LIBRARY ${PROJECT_NAME})
+endif()
+verbose_message("Project lirary reference: ${PROJECT_LIBRARY}\n")
+
+#
 # Model project dependencies
 #
+
+find_package(Boost REQUIRED COMPONENTS system REQUIRED)
+target_link_libraries(
+  ${PROJECT_LIBRARY}
+  PUBLIC
+  Boost::headers
+  Boost::system
+)
 
 # Identify and link with the specific "packages" the project uses
 #find_package(package_name package_version REQUIRED package_type [other_options])
@@ -187,32 +193,23 @@ verbose_message("Successfully added all dependencies and linked against them.")
 #
 
 # Allow usage of header files in the `src` directory, but only for utilities
-if(${PROJECT_NAME}_BUILD_HEADERS_ONLY)
+target_include_directories(
+  ${PROJECT_NAME}
+  PUBLIC
+  $<INSTALL_INTERFACE:include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+if(${PROJECT_NAME}_BUILD_EXECUTABLE AND ${PROJECT_NAME}_ENABLE_UNIT_TESTING)
   target_include_directories(
-    ${PROJECT_NAME}
-    INTERFACE
-    $<INSTALL_INTERFACE:include>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  )
-else()
-  target_include_directories(
-    ${PROJECT_NAME}
+    ${PROJECT_NAME}_LIB
     PUBLIC
     $<INSTALL_INTERFACE:include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
   )
-  if(${PROJECT_NAME}_BUILD_EXECUTABLE AND ${PROJECT_NAME}_ENABLE_UNIT_TESTING)
-    target_include_directories(
-      ${PROJECT_NAME}_LIB
-      PUBLIC
-      $<INSTALL_INTERFACE:include>
-      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-      PRIVATE
-      ${CMAKE_CURRENT_SOURCE_DIR}/src
-    )
-  endif()
 endif()
 
 message(STATUS "Finished setting up include directories.")
@@ -246,4 +243,11 @@ if(${PROJECT_NAME}_ENABLE_UNIT_TESTING)
   enable_testing()
   message(STATUS "Build unit tests for the project. Tests should always be found in the test folder\n")
   add_subdirectory(test)
+endif()
+
+if(CMAKE_EXPORT_COMPILE_COMMANDS)
+  add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${CMAKE_BINARY_DIR}/compile_commands.json
+                    ${CMAKE_SOURCE_DIR}/compile_commands.json)
 endif()
