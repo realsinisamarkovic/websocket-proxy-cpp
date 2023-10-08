@@ -1,16 +1,15 @@
 set(sources
-    src/tmp.cpp
+    src/websocket_proxy.cpp
 )
 
 set(exe_sources
 		src/main.cpp
-		${sources}
 )
 
 set(headers
-    include/project/tmp.hpp
+    include/websocket_proxy_cpp/websocket_proxy.hpp
 )
 
 set(test_sources
-  src/tmp_test.cpp
+  src/websocket_proxy_test.cpp
 )
